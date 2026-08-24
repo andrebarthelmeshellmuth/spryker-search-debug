@@ -13,7 +13,9 @@
     ],
     "require": {
         "php": ">=8.3",
+        "spryker/api-platform": "^1.22.0",
         "spryker/catalog": "^5.13.0",
+        "spryker/catalog-search-rest-api": "^2.13.0",
         "spryker/category-storage": "^2.0.0",
         "spryker/config": "^3.0.0",
         "spryker/console": "^4.0.0",
