@@ -463,9 +463,7 @@ class TokenSourceResolver implements TokenSourceResolverInterface
      */
     protected function findTokenMatches(string $element, string $token): array
     {
-        if (!isset($this->tokenOffsetsCache[$element])) {
-            $this->tokenOffsetsCache[$element] = $this->searchDebugClient->getTextTokenOffsets($element);
-        }
+        $this->tokenOffsetsCache[$element] ??= $this->searchDebugClient->getTextTokenOffsets($element);
 
         return array_values(array_filter(
             $this->tokenOffsetsCache[$element],
