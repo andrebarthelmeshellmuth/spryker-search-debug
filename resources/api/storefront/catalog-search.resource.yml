@@ -1,0 +1,33 @@
+resource:
+    name: CatalogSearch
+
+    # Additive merge into core's `catalog-search` resource (spryker/catalog-search-rest-api,
+    # resources/api/storefront/catalog-search.resource.yml) — matched by `resource.name` above. Only
+    # `name` and `properties` are set here on purpose: `shortName`/`provider`/`operations`/etc. are
+    # scalar keys that would silently CLOBBER whichever layer has higher merge precedence rather than
+    # merge, so only one place (a project-level resource.yml) should ever set them. See this package's
+    # README, "Glue API" section, for the merge-precedence rule and the required project-level step.
+    properties:
+        searchDebug:
+            type: array
+            writable: false
+            readable: true
+            required: false
+            description: >-
+                Search-relevance debug data (matched-token score breakdown, query tokens, field boosts).
+                Present only when the requesting customer holds the SeeSearchDebugInfoPermissionPlugin
+                permission; absent (key omitted) otherwise. See SearchDebugConfig for the exact nested
+                shape (tokens, tokenOffsets, products, fieldBoosts).
+            openapiContext:
+                example:
+                    tokens: ['bag']
+                    tokenOffsets:
+                        bag:
+                            startOffset: 0
+                            endOffset: 3
+                    products:
+                        201:
+                            score: 12.34
+                    fieldBoosts:
+                        full-text: 1
+                        full-text-boosted: 5

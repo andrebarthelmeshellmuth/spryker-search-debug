@@ -209,9 +209,7 @@ class ExplanationParser implements ExplanationParserInterface
         // No script-score node means no function_score wrapper ran — but the tree's own top-level value
         // is still the query's final `_score`, and with nothing else touching it, that IS the pure text
         // relevance. See KEY_QUERY_SCORE's own docblock for why this must not depend on business signals.
-        if ($queryScore === null) {
-            $queryScore = (float)($explanation['value'] ?? 0.0);
-        }
+        $queryScore ??= (float)($explanation['value'] ?? 0.0);
 
         $result = $this->splitByQueryTokens($termWeightAccumulator->getTerms(), $otherContributions, $queryTokens);
         $result[static::KEY_SCORE_FUNCTIONS] = $scoreFunctions;

@@ -35,6 +35,7 @@ Search Debug helps Search Engineers explain ranking decisions—quickly enough t
   - [8. Glossary entries](#8-glossary-entries)
   - [9. Grant the permission](#9-grant-the-permission)
   - [10. Verify the installation](#10-verify-the-installation)
+  - [11. Optional: Glue REST API — `searchDebug` on catalog-search](#11-optional-glue-rest-api--searchdebug-on-catalog-search)
 - [Word-level analysis page](#word-level-analysis-page)
 - [How it works](#how-it-works)
 - [Extending the overlay](#extending-the-overlay)
@@ -576,6 +577,78 @@ Reachable only when BOTH hold:
   with the exact remedy (grant the permission, per step 9) at HTTP 403, rather than a bare access-denied
   response — someone hitting this page without the permission yet is almost always mid-setup, not an
   incident.
+
+### 11. Optional: Glue REST API — `searchDebug` on catalog-search
+
+This package ships an additive Glue API Platform schema
+([`resources/api/storefront/catalog-search.resource.yml`](resources/api/storefront/catalog-search.resource.yml))
+that adds a `searchDebug` property to core's `catalog-search` resource (`spryker/catalog-search-rest-api`)
+— the same permission-gated payload the SRP overlay above reads (`_view.searchDebug`), now also on
+`GET /catalog-search`. It only carries the `properties:` addition; core's own
+`shortName`/`operations`/`provider`/etc. are left alone (see the file's own comment for why — those are
+scalar keys that would silently clobber whichever layer merges last, so only one place should ever set
+them).
+
+**Requires one project-level step, shared with spryker-community/search-ranking's own `randomImpact`
+property** (register once even if you have both packages installed):
+
+`src/Pyz/Glue/CatalogSearchRestApi/resources/api/storefront/catalog-search.resource.yml` — the
+project-level layer (highest merge precedence) that points `provider:` at a small Pyz override:
+
+```yaml
+resource:
+    name: CatalogSearch
+    provider: Pyz\Glue\CatalogSearchRestApi\Api\Storefront\Provider\CatalogSearchStorefrontProvider
+```
+
+`src/Pyz/Glue/CatalogSearchRestApi/Api/Storefront/Provider/CatalogSearchStorefrontProvider.php` —
+extends core's own `CatalogSearchStorefrontProvider`, duplicates its short `provideCollection()` body (the
+raw `$searchResult` array — the same one `SearchDebugResultFormatterPlugin` and search-ranking's
+`RandomImpactResultFormatterPlugin` already populate for Yves — is only reachable there, before it's mapped
+into resource data), and injects both packages' keys before denormalizing:
+
+```php
+$resourceData['searchDebug'] = $searchResult[SearchDebugConfig::SEARCH_RESULT_KEY] ?? [];
+$resourceData['randomImpact'] = $searchResult[SearchRankingConfig::RANDOM_IMPACT_RESULT_KEY] ?? [];
+```
+
+Then regenerate:
+
+```bash
+vendor/bin/glue api:generate storefront
+```
+
+**If you're on a project where `spryker-community/*` packages are installed via composer path
+repositories (symlinked into `vendor/spryker-community/*`, as this demoshop's own packages are):**
+`spryker/api-platform`'s schema finder builds its `Symfony\Component\Finder\Finder` instances without
+`->followLinks()`, so it never descends into a symlinked package directory at all — confirmed directly:
+`(new Finder())->directories()->in('vendor/spryker-community')->name('storefront')` finds nothing for any
+symlinked package, the identical call with `->followLinks()` finds all of them. `sourceDirectories`
+containing plain `'vendor/spryker-community'` is therefore not enough on its own. Fix with a small
+project-level override (no vendor patching) — register in `config/Glue/ApplicationServices.php`:
+
+```php
+use Pyz\Glue\ApiPlatformSymlinkFix\SchemaFinder as PyzSchemaFinder;
+use Pyz\Glue\ApiPlatformSymlinkFix\ValidationSchemaFinder as PyzValidationSchemaFinder;
+use Spryker\ApiPlatform\Schema\Finder\SchemaFinderInterface;
+use Spryker\ApiPlatform\Schema\Validation\Finder\ValidationSchemaFinderInterface;
+
+$configurator->services()->set(SchemaFinderInterface::class, PyzSchemaFinder::class)->autowire();
+$configurator->services()->set(ValidationSchemaFinderInterface::class, PyzValidationSchemaFinder::class)->autowire();
+```
+
+`Pyz\Glue\ApiPlatformSymlinkFix\SchemaFinder`/`ValidationSchemaFinder` (`src/Pyz/Glue/ApiPlatformSymlinkFix/`)
+extend the two upstream classes, duplicating only the Finder-building methods to add `->followLinks()` —
+see those files' own docblocks for the full analysis. With this in place, a plain
+`'vendor/spryker-community'` entry in `sourceDirectories` (`config/Glue/packages/spryker_api_platform.php`)
+is sufficient — no per-package real-path entries needed. A normal `composer require` install (no path
+repository) never hits this at all — `vendor/spryker-community/search-debug` is then a real directory,
+not a symlink. After registering the override, clear the compiled Glue container cache
+(`data/cache/Glue/<env>`) once so it's rebuilt with the new service, then re-run `api:generate`.
+
+`searchDebug` is present (as `[]`) for any requester without `SeeSearchDebugInfoPermissionPlugin`, or
+when debug output wasn't requested (`SearchDebugAccessChecker::isSearchDebugEnabled()`); anonymous Glue
+requests will always see the empty shape.
 
 ## How it works
 
