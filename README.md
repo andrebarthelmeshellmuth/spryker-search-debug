@@ -201,6 +201,7 @@ valid PHP 8.2 resolution exists.
 |---|---|---|
 | OpenSearch 1.3.4 | 8.10.1 | ✅ |
 | OpenSearch 2.11.0 | 9.7.0 | ✅ |
+| OpenSearch 3.5.0 | 10.3.2 | ✅ |
 | Elasticsearch 8.11.0 | 9.8.0 | ✅ |
 
 On each engine the parser was run against both the plain `cross_fields` multi_match shape and the
@@ -211,10 +212,15 @@ the last digit, across both engine lineages and two Lucene generations.
 Elasticsearch 7.x has not been run against real output, but sits inside the verified range: it is the
 fork point OpenSearch 1.x descends from, and both neighbours on either side are verified.
 
-That two-Lucene-generation span is worth something concrete: Lucene did change explain wording between
+That three-Lucene-generation span is worth something concrete: Lucene did change explain wording between
 them (`dl, length of field (approximate)` in 8.10 became `dl, length of field` in 9.7). The parser reads
 that node by prefix rather than exact string, so it kept working — which is the degradation posture
-described below doing its job on a real version change rather than a hypothetical one.
+described below doing its job on a real version change rather than a hypothetical one. **OpenSearch 3.5.0**
+(Lucene 10.3.2) was added the same way: a demoshop upgraded from 1.3.4 end-to-end, the `_explanation` tree
+re-parsed live — same `sum of:` → `function score` / `match on required clause` structure, no parser
+change needed. This package needs **no code change** for OpenSearch 3.x; see
+[Migrating to OpenSearch 3.x](https://github.com/andrebarthelmeshellmuth/spryker-search-ranking/blob/main/docs/opensearch-3.x-migration.md)
+(in `spryker-community/search-ranking`) for the core- and project-level steps the upgrade itself involves.
 
 This package reads `_explanation` trees and `_analyze` output, and stays deliberately inside the feature
 set both engine lineages share. That subset is not arbitrary: Elasticsearch 7.10.2 (January 2021) was the
