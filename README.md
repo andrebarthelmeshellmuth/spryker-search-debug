@@ -219,8 +219,8 @@ described below doing its job on a real version change rather than a hypothetica
 (Lucene 10.3.2) was added the same way: a demoshop upgraded from 1.3.4 end-to-end, the `_explanation` tree
 re-parsed live — same `sum of:` → `function score` / `match on required clause` structure, no parser
 change needed. This package needs **no code change** for OpenSearch 3.x; see
-[Migrating to OpenSearch 3.x](https://github.com/andrebarthelmeshellmuth/spryker-search-ranking/blob/main/docs/opensearch-3.x-migration.md)
-(in `spryker-community/search-ranking`) for the core- and project-level steps the upgrade itself involves.
+[Migrating to OpenSearch 3.x](docs/opensearch-3.x-migration.md) for why the `_explanation` parser survives
+the jump, the capability delta, and the one upgrade-time schema trap every Spryker shop hits.
 
 This package reads `_explanation` trees and `_analyze` output, and stays deliberately inside the feature
 set both engine lineages share. That subset is not arbitrary: Elasticsearch 7.10.2 (January 2021) was the
