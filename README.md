@@ -1,5 +1,9 @@
 # Spryker Search DevTools
 
+> **📦 This repository has moved to [`spryker-community/search-debug`](https://github.com/spryker-community/search-debug).**
+> Development, issues, and releases now happen there. This copy is frozen and read-only — the full
+> history and all release tags were carried over.
+
 [![CI](https://github.com/andrebarthelmeshellmuth/spryker-search-debug/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/andrebarthelmeshellmuth/spryker-search-debug/actions/workflows/ci.yml)
 [![PHP](https://img.shields.io/badge/php-%E2%89%A5%208.3-777bb4)](composer.json)
 [![PHPStan](https://img.shields.io/badge/PHPStan-level%208-2a6b2a)](phpstan.neon)
