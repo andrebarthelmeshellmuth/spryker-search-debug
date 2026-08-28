@@ -11,6 +11,7 @@ namespace SprykerCommunityTest\Zed\SearchDebug\Communication\Console;
 
 use Codeception\Test\Unit;
 use SprykerCommunity\Zed\SearchDebug\Communication\Console\SearchDebugCheckInstallationConsole;
+use SprykerCommunityTest\Zed\SearchDebug\Communication\Console\Fixture\GlueApiResourceFixture;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -54,6 +55,91 @@ class SearchDebugCheckInstallationConsoleTest extends Unit
         $this->assertStringContainsString('Everything checkable from the CLI is in place.', $commandTester->getDisplay());
     }
 
+    public function testWarnsAndNamesTheRemedyWhenTheSchemaMergeHasNotHappened(): void
+    {
+        // Arrange — a class name nothing ever defines, standing in for the merged schema never having been generated.
+        $commandTester = $this->createCommandTesterWithGlueApiWiring(
+            resourceClassName: 'Generated\\Api\\Storefront\\DoesNotExistResource' . uniqid(),
+            overrideFilePath: sys_get_temp_dir() . '/does-not-exist-' . uniqid() . '.php',
+        );
+
+        // Act
+        $exitCode = $commandTester->execute([]);
+
+        // Assert — optional (a project may not run Glue Storefront at all), so still CODE_SUCCESS.
+        $this->assertSame(SearchDebugCheckInstallationConsole::CODE_SUCCESS, $exitCode);
+        $this->assertStringContainsString('does not have a getSearchDebug() accessor yet', $commandTester->getDisplay());
+        $this->assertStringNotContainsString('schema merge:', $commandTester->getDisplay());
+        $this->assertStringNotContainsString('wires searchDebug into the Glue response', $commandTester->getDisplay());
+    }
+
+    public function testWarnsAndNamesTheRemedyWhenTheSchemaMergedButNoOverrideExists(): void
+    {
+        // Arrange
+        $commandTester = $this->createCommandTesterWithGlueApiWiring(
+            resourceClassName: GlueApiResourceFixture::class,
+            overrideFilePath: sys_get_temp_dir() . '/does-not-exist-' . uniqid() . '.php',
+        );
+
+        // Act
+        $exitCode = $commandTester->execute([]);
+
+        // Assert
+        $this->assertSame(SearchDebugCheckInstallationConsole::CODE_SUCCESS, $exitCode);
+        $this->assertStringContainsString('has a searchDebug property', $commandTester->getDisplay());
+        $this->assertStringContainsString('no project-level', $commandTester->getDisplay());
+        $this->assertStringContainsString('override exists', $commandTester->getDisplay());
+        $this->assertStringNotContainsString('wires searchDebug into the Glue response', $commandTester->getDisplay());
+    }
+
+    public function testWarnsAndNamesTheRemedyWhenTheOverrideExistsButDoesNotReferenceSearchDebug(): void
+    {
+        // Arrange
+        $overrideFilePath = $this->createOverrideFileFixture('<?php class CatalogSearchStorefrontProvider {}');
+
+        try {
+            $commandTester = $this->createCommandTesterWithGlueApiWiring(
+                resourceClassName: GlueApiResourceFixture::class,
+                overrideFilePath: $overrideFilePath,
+            );
+
+            // Act
+            $exitCode = $commandTester->execute([]);
+
+            // Assert
+            $this->assertSame(SearchDebugCheckInstallationConsole::CODE_SUCCESS, $exitCode);
+            $this->assertStringContainsString('exists but does not reference "searchDebug"', $commandTester->getDisplay());
+            $this->assertStringNotContainsString('wires searchDebug into the Glue response', $commandTester->getDisplay());
+        } finally {
+            unlink($overrideFilePath);
+        }
+    }
+
+    public function testSucceedsWithoutWarningWhenTheGlueApiWiringIsComplete(): void
+    {
+        // Arrange
+        $overrideFilePath = $this->createOverrideFileFixture('<?php class CatalogSearchStorefrontProvider { public function provideCollection() { $resourceData["searchDebug"] = $searchResult[SearchDebugConfig::SEARCH_RESULT_KEY] ?? []; } }');
+
+        try {
+            $commandTester = $this->createCommandTesterWithGlueApiWiring(
+                resourceClassName: GlueApiResourceFixture::class,
+                overrideFilePath: $overrideFilePath,
+            );
+
+            // Act
+            $exitCode = $commandTester->execute([]);
+
+            // Assert
+            $this->assertSame(SearchDebugCheckInstallationConsole::CODE_SUCCESS, $exitCode);
+            $this->assertStringContainsString('has a searchDebug property', $commandTester->getDisplay());
+            $this->assertStringContainsString('wires searchDebug into the Glue response', $commandTester->getDisplay());
+            $this->assertStringNotContainsString('does not have a getSearchDebug', $commandTester->getDisplay());
+            $this->assertStringNotContainsString('no project-level', $commandTester->getDisplay());
+        } finally {
+            unlink($overrideFilePath);
+        }
+    }
+
     protected function createCommandTester(): CommandTester
     {
         $console = new SearchDebugCheckInstallationConsole();
@@ -64,5 +150,55 @@ class SearchDebugCheckInstallationConsoleTest extends Unit
         $command = $application->find(SearchDebugCheckInstallationConsole::COMMAND_NAME);
 
         return new CommandTester($command);
+    }
+
+    /**
+     * Same wiring as {@see createCommandTester()}, but with an anonymous subclass overriding
+     * {@see SearchDebugCheckInstallationConsole::getGlueApiResourceClassName()} and
+     * {@see SearchDebugCheckInstallationConsole::getGlueApiProviderOverrideFilePath()} so the Glue API
+     * wiring check tests fixtures instead of this host shop's real generated resource / real project
+     * override file.
+     */
+    protected function createCommandTesterWithGlueApiWiring(string $resourceClassName, string $overrideFilePath): CommandTester
+    {
+        $console = new class ($resourceClassName, $overrideFilePath) extends SearchDebugCheckInstallationConsole {
+            public function __construct(protected string $resourceClassName, protected string $overrideFilePath)
+            {
+                parent::__construct();
+            }
+
+            protected function getGlueApiResourceClassName(): string
+            {
+                return $this->resourceClassName;
+            }
+
+            protected function getGlueApiProviderOverrideFilePath(): string
+            {
+                return $this->overrideFilePath;
+            }
+        };
+
+        $application = new Application();
+        $application->add($console);
+
+        $command = $application->find(SearchDebugCheckInstallationConsole::COMMAND_NAME);
+
+        return new CommandTester($command);
+    }
+
+    /**
+     * Writes a throwaway PHP file standing in for a project's
+     * `src/Pyz/Glue/CatalogSearchRestApi/Api/Storefront/Provider/CatalogSearchStorefrontProvider.php`
+     * override — the console only ever reads this file's contents with `file_get_contents()`, it never
+     * includes/parses it, so the contents don't need to be autoload-safe PHP, just contain (or not
+     * contain) the literal string `searchDebug`.
+     */
+    protected function createOverrideFileFixture(string $contents): string
+    {
+        $overrideFilePath = tempnam(sys_get_temp_dir(), 'catalog-search-storefront-provider-override-fixture-');
+
+        file_put_contents($overrideFilePath, $contents);
+
+        return $overrideFilePath;
     }
 }
