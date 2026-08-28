@@ -78,7 +78,8 @@
         "psr-4": {
             "SprykerCommunity\\": "src/SprykerCommunity/",
             "SprykerCommunityTest\\Client\\SearchDebug\\Fixture\\": "tests/SprykerCommunityTest/Client/SearchDebug/Fixture/",
-            "SprykerCommunityTest\\Client\\SearchDebug\\Plugin\\Fixtures\\": "tests/SprykerCommunityTest/Client/SearchDebug/Plugin/Fixtures/"
+            "SprykerCommunityTest\\Client\\SearchDebug\\Plugin\\Fixtures\\": "tests/SprykerCommunityTest/Client/SearchDebug/Plugin/Fixtures/",
+            "SprykerCommunityTest\\Zed\\SearchDebug\\Communication\\Console\\Fixture\\": "tests/SprykerCommunityTest/Zed/SearchDebug/Communication/Console/Fixture/"
         }
     },
     "autoload-dev": {
@@ -91,6 +92,11 @@
         "sort-packages": true,
         "allow-plugins": {
             "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "extra": {
+        "dependency-pins": {
+            "symfony/security-guard": "Resolution pin only — no src/ usage, do NOT drop in a phantom-dependency audit. Holds symfony/security-core on a PHP-8.3-compatible line; without it composer walks the spryker/api-platform -> api-platform/symfony -> symfony/security-core ^6.4||^7.0||^8.0 branch whose only self-consistent set needs security-core 8.x (php >= 8.4) and CI runs php 8.3, so 'composer install' fails outright."
         }
     },
     "minimum-stability": "stable",
